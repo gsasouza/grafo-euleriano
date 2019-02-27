@@ -9,6 +9,15 @@ typedef struct graph {
     int** adjacency_matrix;
 } Graph;
 
+typedef struct linkedListNode {
+    int value;
+    struct linkedListNode* next;
+} LinkedListNode;
+
+typedef struct linkedList {
+    LinkedListNode* head;
+} LinkedList;
+
 int** create_matrix (int size) {
     int** matrix = malloc(sizeof(int*) * size);
     for (int i = 0; i < size; ++i) {
@@ -55,6 +64,13 @@ void print_matrix(Graph* graph) {
     printf("\n\n");
 }
 
+void add_item_list(LinkedList* list, int value) {
+    LinkedListNode* new_item = (LinkedListNode*) malloc(sizeof(LinkedListNode*));
+    new_item->next = list->head;
+    new_item->value = value;
+    list->head = new_item;
+}
+
 int compare_matrix (int size, int** matrix1, int** matrix2) {
     for (int i = 0; i < size; i++) {
         for (int j = 0; j < size; ++j) {
@@ -78,16 +94,36 @@ int is_eleurian (Graph* graph) {
     return 1;
 };
 
-int solve (Graph* graph, int** visited_matrix) {
+int solve (Graph* graph, int** visited_matrix, LinkedList* path, int current_vertex) {
     if (compare_matrix(graph->current_vertices, graph->adjacency_matrix, visited_matrix)) {
         return 1;
     }
-
+    for (int i = 0; i < graph->current_vertices; i++) {
+        if (graph->adjacency_matrix[current_vertex][i] && !visited_matrix[current_vertex][i]){ // tem o edge, mas ainda nào foi visitado
+            visited_matrix[current_vertex][i] = 1;
+            if (solve(graph, visited_matrix, path, i)) {
+                add_item_list(path, i);
+                return 1;
+            }
+        }
+    }
+    return 0;
 }
 
-void solve_eleuria_path (Graph* graph) {
+void print_list (LinkedList* list) {
+    LinkedListNode* current_node = list->head;
+    while(current_node) {
+        printf("%d", current_node->value);
+        current_node = current_node->next;
+    }
+}
+
+LinkedList* solve_eleurian_path (Graph* graph, int initial_vertex) {
     if (!is_eleurian(graph)) printf ("o grafo não é euleriano");
     int ** visited_matrix = create_matrix(graph->current_vertices);
+    LinkedList* path = (LinkedList *) malloc(sizeof(LinkedList*));
+    solve(graph, visited_matrix, path, initial_vertex);
+    return path;
 };
 
 int main() {
@@ -101,11 +137,7 @@ int main() {
     add_edge(graph, 0, 2);
     add_edge(graph, 1, 2);
     add_edge(graph, 1, 3);
-//    print_matrix(graph);
-    int x = is_eleurian(graph);
-
-//    int** visited_matrix = create_matrix(graph->current_vertices);
-//    int x  = compare_matrix(graph->current_vertices, visited_matrix, graph->adjacency_matrix);
-    printf("%d", x);
+    LinkedList* path = solve_eleurian_path(graph, 0);
+    print_list(path);
     return 0;
 };
