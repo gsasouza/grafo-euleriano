@@ -2,7 +2,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 
-#define VERTEX_COUNT 6
+#define VERTEX_COUNT 20
 
 typedef struct graph {
     int vertex_count_max;
@@ -45,9 +45,15 @@ void add_node (Graph* graph) {
     graph->current_vertices++;
 };
 
-void add_edge (Graph* graph, int source, int destination) {
+void add_unidirectional_edge (Graph* graph, int source, int destination) {
     if (graph->current_vertices == 0) return;
     graph->adjacency_matrix[source][destination] = 1;
+};
+
+void add_bidirectional_edge (Graph* graph, int source1, int source2) {
+    if (graph->current_vertices == 0) return;
+    graph->adjacency_matrix[source1][source2] = 1;
+    graph->adjacency_matrix[source2][source1] = 1;
 };
 
 void remove_edge (Graph* graph, int source, int destination) {
@@ -81,49 +87,103 @@ int compare_matrix (int size, int** matrix1, int** matrix2) {
     return 1;
 };
 
-int is_eleurian (Graph* graph) {
+//a mudanca feita foi para verificar se todos os nodes possuem grau par
+int has_eulerian_tour (Graph* graph) {
     int total_odd = 0;
-    for (int i = 0; i < graph->current_vertices; ++i) {
-        int edges = 0;
-        for (int j = 0; j < graph->current_vertices; ++j) {
-            if (graph->adjacency_matrix[i][j]) edges++;
-        }
-        if (edges % 2 != 0) total_odd++;
-        if (total_odd > 2) return 0;
-    }
-    if (total_odd == 1) return 0;
-    return 1;
-};
 
-int solve (Graph* graph, int** visited_matrix, LinkedList* path, int current_vertex) {
-    if (compare_matrix(graph->current_vertices, graph->adjacency_matrix, visited_matrix)) {
-        return 1;
-    }
-    for (int i = 0; i < graph->current_vertices; i++) {
-        if (graph->adjacency_matrix[current_vertex][i] && !visited_matrix[current_vertex][i]){ // tem o edge, mas ainda nào foi visitado
-            visited_matrix[current_vertex][i] = 1;
-            if (solve(graph, visited_matrix, path, i)) {
-                add_item_list(path, i);
-                return 1;
+    int* node_degree_count = (int*) malloc(sizeof(int)*(graph->current_vertices));
+    
+    for (int i = 0; i < graph->current_vertices; ++i) {
+        for (int j = 0; j < graph->current_vertices; ++j) {
+            if (graph->adjacency_matrix[i][j]){
+                node_degree_count[i]++;
             }
         }
     }
+
+    for (int i = 0; i < graph->current_vertices; ++i){
+        if(node_degree_count[i]%2 != 0) return 0;
+    }
+
+    if (total_odd == 1 || total_odd >2) return 1;
+    
+    return 1;
+};
+
+/*
+a alternativa que encontrei para a resolver o problema da copia 
+ de matrizes durante os estados da recursao foi utilizar uma unica matriz compartilhada entre os estados 
+*/
+int solve (Graph* graph, int** visited_matrix, LinkedList* path, int current_vertex) {
+    
+    if (compare_matrix(graph->current_vertices, graph->adjacency_matrix, visited_matrix)) {
+        
+        add_item_list(path, current_vertex);
+        
+        return 1;
+    }
+    
+    for (int i = 0; i < graph->current_vertices; i++) {
+        
+        if (graph->adjacency_matrix[current_vertex][i] && !visited_matrix[current_vertex][i]){ // tem o edge, mas ainda nào foi visitado
+            
+            //marca como visitado esse caminho 
+            visited_matrix[current_vertex][i] = 1;
+            visited_matrix[i][current_vertex] = 1;
+            
+            if (solve(graph, visited_matrix, path, i)) {
+                
+                
+                add_item_list(path, current_vertex);
+                
+                return 1;
+            }
+            
+            /*
+            Se chegamos aqui, quer dizer que não encontramos o caminho ainda. Como a matriz de visitados está
+            sendo compartilhada com todos os estagios da recursao, precisamos fingir que nunca passamos por essa aresta [current_vertex][i],
+            para que ela possa ser utilizada posteriormente por um outro estado da recursão. Por esse motivo, colocamos 0 de volta.
+            
+            A ideia eh fazer com que os caminhos visitados por um estado fiquem visíveis apenas para os proximos estados da recursao. Um estado anterior nao pode saber dos
+            caminhos pelos quais o estado posterior passou, a não ser que o caminho euleriano teha sido alcançado.
+            */
+            
+            visited_matrix[current_vertex][i] = 0;//no retorno, a matriz volta do jeito que entrou
+            visited_matrix[i][current_vertex] = 0;//no retorno, a matriz volta do jeito que entrou
+            
+        }
+    }
+    
+    
     return 0;
 }
 
 void print_list (LinkedList* list) {
+    
+    if(list == NULL)
+        return;
+
     LinkedListNode* current_node = list->head;
     while(current_node) {
-        printf("%d", current_node->value);
+        printf("%d ", current_node->value);
         current_node = current_node->next;
     }
+    printf("\n");
 }
 
 LinkedList* solve_eleurian_path (Graph* graph, int initial_vertex) {
-    if (!is_eleurian(graph)) printf ("o grafo não é euleriano");
+    
+    if (!has_eulerian_tour(graph)) {
+        printf ("o grafo não é euleriano");
+        return NULL;
+    }
+    
     int ** visited_matrix = create_matrix(graph->current_vertices);
+    
     LinkedList* path = (LinkedList *) malloc(sizeof(LinkedList*));
+    
     solve(graph, visited_matrix, path, initial_vertex);
+    
     return path;
 };
 
@@ -134,11 +194,27 @@ int main() {
     add_node(graph);
     add_node(graph);
     add_node(graph);
-    add_edge(graph, 0, 1);
-    add_edge(graph, 0, 2);
-    add_edge(graph, 1, 2);
-    add_edge(graph, 1, 3);
-    LinkedList* path = solve_eleurian_path(graph, 0);
+    add_node(graph);
+    add_node(graph);
+    add_bidirectional_edge(graph, 6, 5);
+    add_bidirectional_edge(graph, 6, 4);
+    add_bidirectional_edge(graph, 6, 3);
+    add_bidirectional_edge(graph, 6, 2);
+    add_bidirectional_edge(graph, 5, 4);
+    add_bidirectional_edge(graph, 5, 3);
+    add_bidirectional_edge(graph, 5, 2);
+    add_bidirectional_edge(graph, 4, 0);
+    add_bidirectional_edge(graph, 4, 1);
+    add_bidirectional_edge(graph, 4, 2);
+    add_bidirectional_edge(graph, 4, 3);
+    add_bidirectional_edge(graph, 3, 2);
+    add_bidirectional_edge(graph, 1, 0);
+    // add_unidirectional_edge(graph,0,1);
+    // add_unidirectional_edge(graph,1,2);
+    // add_unidirectional_edge(graph,3,2);
+    // add_unidirectional_edge(graph,2,0);
+    // printf("%d",has_eulerian_tour(graph));
+    LinkedList* path = solve_eleurian_path(graph, 3);
     print_list(path);
     return 0;
 };
